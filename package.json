@@ -1,11 +1,14 @@
 {
   "name": "@still-running/health-check",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Static analysis of n8n workflow JSON and Make blueprint JSON — no execution, no network, no storage.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "still-running": "./dist/cli.js"
+  },
   "files": [
     "dist",
     "README.md"

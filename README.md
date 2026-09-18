@@ -130,6 +130,41 @@ the `Platform` type, and `SCHEMA_VERSION` — see `CHANGELOG.md` for what
 changed at `2.0.0`. `analyze()`'s return carries `schemaVersion`, so anyone
 storing results can tell which shape they were written under.
 
+## Command line
+
+```
+npx @still-running/health-check ./workflow.json
+```
+
+Given the `workflow.json` from the worked example above:
+
+```
+workflow.json — New lead to CRM (n8n, 3 nodes)
+
+CRITICAL (1)
+  [zero-write] "Create in CRM" can be skipped entirely and the run still finishes green
+    node: Create in CRM
+    if it goes quiet: "Find existing contact" can find no matching records. Every path to "Create in CRM" goes through it, so nothing is written to Airtable, every step shows as successful, and the execution list looks exactly like a normal day. This is the only write in the workflow, so the run does nothing at all.
+    Chain: "Find existing contact" -> "Create in CRM". Nothing else leaves that step, so the empty case reaches nobody.
+    how to check: Nothing in this workflow would surface an empty run: no alert branch, no expected rhythm, no error handler. Static analysis can only tell you this is possible. Whether it is happening needs run history: compare items written per run against the same run a week ago.
+
+MEDIUM (1)
+  [error-handling] No workflow-level error handler is set
+    if it goes quiet: A step that throws stops the run. Somebody has to be watching the execution list to find out.
+    This is a different miss from "a node has no error branch", and easier to overlook, because the canvas looks fine. It lives in workflow Settings -> Error Workflow.
+
+LOW (2)
+  [no-cadence] This workflow only runs when somebody presses the button
+    node: Start
+    if it goes quiet: Nothing to detect — a manual workflow that never runs is not broken.
+    Nothing to monitor here until it gets a schedule or a webhook.
+
+  [error-handling] 2 steps with no retry and no error branch
+    node: Find existing contact
+    if it goes quiet: These throw on a bad day and the run stops where it stands, part-done.
+    "Find existing contact", "Create in CRM". This is the check every free auditor already does — it is here for completeness, not because it is the interesting part.
+```
+
 ---
 
 Built by Ali Alsamraay. [stillrunning.dev](https://stillrunning.dev)
