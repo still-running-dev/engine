@@ -1,6 +1,9 @@
 name: Release
 
-# The only path that may publish this package to npm — see PUBLISHING.md.
+# This workflow is the only path that may publish this package to npm.
+# Authentication is npm trusted publishing via OIDC: the trusted publisher on
+# npmjs.com is bound to this exact repo and this exact workflow filename, so
+# renaming either one breaks publishing until it is re-pointed there.
 # Cutting a GitHub Release is the trigger; the tag name is expected to match
 # the version in package.json (e.g. v2.0.0 for "2.0.0").
 on:
@@ -32,8 +35,8 @@ jobs:
       - run: npm run build
 
       # No NPM_TOKEN anywhere in this workflow, on purpose: this package's
-      # npm trusted publisher is configured (on npmjs.com, see PUBLISHING.md)
-      # to accept only this exact repo + workflow file via OIDC. npm's CLI
-      # detects the `id-token: write` permission above and exchanges it for
-      # a short-lived publish token automatically.
+      # npm trusted publisher is configured on npmjs.com to accept only this
+      # exact repo + workflow file via OIDC. npm's CLI detects the
+      # `id-token: write` permission above and exchanges it for a short-lived
+      # publish token automatically.
       - run: npm publish --access public --provenance

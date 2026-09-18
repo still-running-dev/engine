@@ -1,4 +1,7 @@
-# Workflow Health Check
+# engine
+
+The analysis engine behind stillrunning.dev. Published as
+@still-running/health-check.
 
 You paste an n8n workflow export or a Make blueprint export, and this tells
 you which of its steps can finish "successful" while quietly doing nothing —

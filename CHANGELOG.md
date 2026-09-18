@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+Repository renamed from `Workflow-Health-Check` to `engine` (still under the
+`still-running-dev` organisation). **The npm package name is unchanged** —
+it is still, and will remain, `@still-running/health-check`. If you depend on
+this package, there is nothing to migrate.
+
 ## 2.0.0
 
 First release from this repo — moved out of the `stillrunning` monorepo
