@@ -1,8 +1,9 @@
 /**
  * n8n adapter. All n8n knowledge lives here and nowhere else.
  *
- * Classification tables below are ranked by what actually appears in 2,043 real
- * workflows from the public template library, not by guesswork.
+ * Classification tables below were originally ordered against a snapshot of
+ * the public template library that was not kept, and will be re-validated
+ * against the rebuilt corpus (see scripts/corpus/ once it exists).
  */
 
 import type {
