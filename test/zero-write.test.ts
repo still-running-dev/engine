@@ -72,6 +72,15 @@ describe('severity depends on whether anything could notice', () => {
     expect(zw(r).map((f) => f.nodeLabel)).not.toContain('Tell us');
     expect(['medium', 'low']).toContain(zw(r)[0].severity);
   });
+
+  it('treats a Slack message on an n8n error output as an alert, not a write', () => {
+    const raw = wf('t', [manualTrig(), search('Find'), write('Save'), node('Save failed', 'n8n-nodes-base.slack')],
+      merge(link('Start', 'Find'), link('Find', 'Save')));
+    raw.nodes[2].onError = 'continueErrorOutput';
+    raw.connections['Save'] = { main: [[], [{ node: 'Save failed', type: 'main', index: 0 }]] };
+
+    expect(zw(analyze(raw)).map((f) => f.nodeLabel)).toEqual(['Save']);
+  });
 });
 
 describe('credential expiry stays conditional', () => {

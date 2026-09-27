@@ -9,14 +9,14 @@
  * credential expiry lead because they are the two nobody else does; error
  * handling is last because six free tools already ship it.
  *
- * The exports below are the entire public API as of 2.0.0 — see CHANGELOG.md
- * for what this release removed. Anything not exported here is an
+ * The exports below are the entire public API — see CHANGELOG.md for what
+ * 2.0.0 removed and what later minors added. Anything not exported here is an
  * implementation detail that can change without a major version.
  */
 
-import type { AnalysisResult, Finding, Workflow } from './core/model.js';
+import type { AnalysisResult, Finding, NodeRole, Workflow } from './core/model.js';
 import { SEVERITY_ORDER } from './core/model.js';
-import { checkZeroWrite } from './core/checks/zero-write.js';
+import { checkZeroWrite, findAlertNodes } from './core/checks/zero-write.js';
 import { checkCadence, checkCredentialExpiry, checkErrorHandling } from './core/checks/others.js';
 import { checkProtections } from './core/checks/protections.js';
 import { isN8nWorkflow, parseN8n } from './adapters/n8n.js';
@@ -76,4 +76,65 @@ export function analyze(input: string | object): AnalysisResult {
   };
 }
 
-export type { Finding, Platform, Severity } from './core/model.js';
+/** One step of a workflow as `classifyNodes()` sees it. */
+export interface ClassifiedNode {
+  /** n8n: the node's `id` (its `name` when the export has no id). Make: the module's id. */
+  id: string;
+  /**
+   * The step's name. For n8n this is the node's `name`, which is also the key
+   * n8n uses for the node in `connections` and in an execution's run data.
+   */
+  label: string;
+  /**
+   * What the step does. `'write'` is a data write, the same set the zero-write
+   * check reasons about: a message sent only on a false, else or error branch
+   * is reported as `'alert'` instead, because it tells a human about an empty
+   * run rather than writing data.
+   */
+  role: NodeRole;
+  disabled: boolean;
+  /**
+   * Enabled, not a note, and nothing enabled runs after it except through an
+   * error route. Where a run's data ends up when the workflow has no write step.
+   * A disabled step in between passes its input straight on, so it doesn't end
+   * the path.
+   */
+  terminal: boolean;
+}
+
+/**
+ * The role of every step in a workflow, from the same parse and the same
+ * classification tables `analyze()` uses. Lets a consumer that watches real
+ * runs (stillrunning-api counts the items a run wrote) tell write steps apart
+ * without keeping its own copy of those tables. Throws on input `analyze()`
+ * would reject.
+ */
+export function classifyNodes(input: string | object): ClassifiedNode[] {
+  const wf = parseWorkflow(input);
+  const alertIds = findAlertNodes(wf);
+  const byId = new Map(wf.nodes.map((n) => [n.id, n]));
+  const next = new Map<string, string[]>();
+  for (const e of wf.edges) {
+    if (e.channel === 'error') continue;
+    next.set(e.from, [...(next.get(e.from) ?? []), e.to]);
+  }
+
+  const leadsOn = (id: string, seen: Set<string>): boolean =>
+    (next.get(id) ?? []).some((to) => {
+      const n = byId.get(to);
+      if (!n || n.role === 'note' || seen.has(to)) return false;
+      if (!n.disabled) return true;
+      seen.add(to);
+      return leadsOn(to, seen);
+    });
+
+  return wf.nodes.map((n) => ({
+    id: n.id,
+    label: n.label,
+    role: n.role === 'write' && alertIds.has(n.id) ? 'alert' : n.role,
+    disabled: n.disabled,
+    terminal: !n.disabled && n.role !== 'note' && !leadsOn(n.id, new Set([n.id])),
+  }));
+}
+
+export type { Finding, NodeRole, Platform, Severity } from './core/model.js';

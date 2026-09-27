@@ -214,6 +214,20 @@ function readCadence(nodes: any[]): Cadence {
   return { kind: 'unknown', description: 'no trigger found', intervalSeconds: null, expectedIntervalKnown: false };
 }
 
+/**
+ * `onError: 'continueErrorOutput'` gives a node an error output after its
+ * regular ones. Where that lands depends on how many regular outputs the node
+ * has, which the export doesn't say: an IF has two, a write or read step one.
+ * For anything else (Switch, loops, community nodes) we can't tell, so every
+ * output is read as a regular one.
+ */
+function errorOutputIndex(node: any, role: NodeRole | undefined): number | null {
+  if (node?.onError !== 'continueErrorOutput') return null;
+  if (shortType(node.type ?? '') === 'if') return 2;
+  if (role === 'write' || role === 'read') return 1;
+  return null;
+}
+
 export function isN8nWorkflow(raw: any): boolean {
   return !!raw && typeof raw === 'object' && Array.isArray(raw.nodes) && typeof raw.connections === 'object';
 }
@@ -253,24 +267,23 @@ export function parseN8n(raw: any): Workflow {
 
   // n8n keys connections by node NAME; the model keys by id. Bridge it.
   const idByName = new Map(rawNodes.map((n) => [String(n.name), String(n.id ?? n.name)]));
+  const roleByName = new Map(rawNodes.map((n, i) => [String(n.name), nodes[i].role]));
   const edges: WorkflowEdge[] = [];
   for (const [sourceName, outputs] of Object.entries<any>(raw.connections ?? {})) {
     const from = idByName.get(sourceName);
     if (!from) continue;
+    const sourceNode = rawNodes.find((n) => String(n.name) === sourceName);
+    const isIf = shortType(sourceNode?.type ?? '') === 'if';
+    const errorIndex = errorOutputIndex(sourceNode, roleByName.get(sourceName));
     for (const [channel, groups] of Object.entries<any>(outputs ?? {})) {
       (groups ?? []).forEach((group: any[], outputIndex: number) => {
         (group ?? []).forEach((conn: any) => {
           const to = idByName.get(String(conn?.node));
           if (!to) return;
-          const sourceNode = rawNodes.find((n) => String(n.name) === sourceName);
-          const isIf = shortType(sourceNode?.type ?? '') === 'if';
-          edges.push({
-            from,
-            to,
-            channel:
-              channel === 'main' && isIf ? (outputIndex === 0 ? 'true' : 'false') : channel,
-            gate: null,
-          });
+          let edgeChannel = channel;
+          if (channel === 'main' && outputIndex === errorIndex) edgeChannel = 'error';
+          else if (channel === 'main' && isIf) edgeChannel = outputIndex === 0 ? 'true' : 'false';
+          edges.push({ from, to, channel: edgeChannel, gate: null });
         });
       });
     }

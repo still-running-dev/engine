@@ -1,5 +1,37 @@
 # Changelog
 
+## 2.2.0
+
+**Added:** `classifyNodes(input)`, which returns every step of a workflow as
+`{ id, label, role, disabled, terminal }`, from the same parse and the same
+classification tables `analyze()` uses. The `NodeRole` and `ClassifiedNode`
+types are exported with it.
+
+- `role` is the step's role (`'trigger'`, `'write'`, `'read'`, `'gate'`,
+  `'transform'`, `'loop'`, `'alert'`, `'error-handler'`, `'note'`,
+  `'other'`). A `'write'` is a data write, the same set the zero-write check
+  reasons about: a message sent only on a false, else or error branch comes
+  back as `'alert'`.
+- For n8n, `label` is the node's `name`, the key n8n uses in `connections`
+  and in an execution's run data.
+- `terminal` marks the enabled steps nothing enabled runs after (a disabled
+  step in between passes its input on, so it doesn't end the path).
+
+This is for consumers that watch real runs. stillrunning-api uses it to count
+the items a run wrote: the items its write steps output, or, with no write
+step, what reached the end of the workflow. It throws on the same input
+`analyze()` rejects.
+
+**Fixed:** an n8n node set to `onError: 'continueErrorOutput'` gets an error
+output after its regular ones, and that output was read as a regular one. It
+is now an error route for an IF (its third output) and for a write or read
+step (its second). For other nodes (Switch, loops, community nodes) the
+export doesn't say how many regular outputs there are, so nothing changes.
+This affects `analyze()` too: a message sent from a write step's error output
+is an alert, so the zero-write check no longer reports it as a write that can
+be skipped, and a step reached only through an error output is off the
+normal path.
+
 ## 2.1.0
 
 **Added:** a command-line interface, shipped in this same package as the

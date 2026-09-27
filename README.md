@@ -125,10 +125,15 @@ import { analyze } from '@still-running/health-check';
 const result = analyze(workflowExportJson);
 ```
 
-The public API is exactly `analyze()`, the `Finding` and `Severity` types,
-the `Platform` type, and `SCHEMA_VERSION` — see `CHANGELOG.md` for what
-changed at `2.0.0`. `analyze()`'s return carries `schemaVersion`, so anyone
-storing results can tell which shape they were written under.
+The public API is `analyze()`, the `Finding` and `Severity` types, the
+`Platform` type, and `SCHEMA_VERSION` — see `CHANGELOG.md` for what changed
+at `2.0.0`. `analyze()`'s return carries `schemaVersion`, so anyone storing
+results can tell which shape they were written under.
+
+Since `2.2.0` it also has `classifyNodes()`, with its `ClassifiedNode` and
+`NodeRole` types: the role of every step (`'write'`, `'read'`, `'trigger'`,
+and so on) and whether it ends the workflow, for code that watches real runs
+and needs to know which steps write data.
 
 ## Command line
 
