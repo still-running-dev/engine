@@ -22,12 +22,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
 
-      # Trusted publishing (OIDC) needs a recent npm CLI — newer than what
-      # Node 20 bundles by default.
-      - run: npm install -g npm@latest
+      # Trusted publishing (OIDC) needs npm 11.5.1 or later. Pinned to a
+      # major rather than `latest`: on Node 20, `npm@latest` became npm 12,
+      # which refuses Node 20, and the v2.2.0 run failed right here.
+      - run: npm install -g npm@11
 
       - run: npm ci
       - run: npm run typecheck
