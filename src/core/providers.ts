@@ -10,41 +10,70 @@
  *  2. If we cannot know the condition from a pasted JSON, say so in `certainty:
  *     'conditional'` and give `howToCheck`. Never predict what we cannot see.
  *  3. Adding a provider must never require touching a check.
+ *  4. `windowSeconds` and `countsFrom` say what `window` says, as numbers.
+ *     A window with no fixed length is `null`, never a guess.
+ *
+ * Exported since 2.3.0, frozen: it is public, and analyze() reads the same
+ * objects, so a consumer must not be able to change what the checks see.
  */
 
 import type { AuthKind } from './model.js';
 
+const DAY = 86_400;
+
 export interface ExpiryRule {
   /** The situation in which this window applies, in plain words. */
-  condition: string;
+  readonly condition: string;
   /** 'certain'     - true for every connection of this type.
    *  'conditional' - depends on something not visible in the export. */
-  certainty: 'certain' | 'conditional';
+  readonly certainty: 'certain' | 'conditional';
   /** e.g. '7 days', '60 days', 'never'. */
-  window: string;
-  detail: string;
+  readonly window: string;
+  /**
+   * `window` as a number, for code that forecasts a date: the longest this
+   * rule lets the credential live, in seconds. `null` when the rule sets no
+   * fixed length ('never', 'indefinite', a policy the export can't show).
+   */
+  readonly windowSeconds: number | null;
+  /**
+   * What `windowSeconds` counts from: `'issued'` (consent, or the token being
+   * generated) or `'last-use'` (it expires from disuse). `null` exactly when
+   * `windowSeconds` is.
+   */
+  readonly countsFrom: 'issued' | 'last-use' | null;
+  readonly detail: string;
   /** How the reader confirms it themselves, in under a minute. */
-  howToCheck?: string;
+  readonly howToCheck?: string;
 }
 
 export interface Provider {
-  id: string;
-  displayName: string;
+  /** Stable key, e.g. 'google'. What `CredentialRef.providerId` holds. */
+  readonly id: string;
+  readonly displayName: string;
   /** Substring matchers against the raw credential type, lower-cased. */
-  match: {
-    n8n: string[];
-    make: string[];
+  readonly match: {
+    readonly n8n: readonly string[];
+    readonly make: readonly string[];
   };
-  defaultAuthKind: AuthKind;
+  readonly defaultAuthKind: AuthKind;
   /** Can the platform silently refresh this without a human? */
-  autoRefreshable: boolean;
-  rules: ExpiryRule[];
-  sources: string[];
+  readonly autoRefreshable: boolean;
+  /** The first rule is the one the credential-expiry finding leads with. */
+  readonly rules: readonly ExpiryRule[];
+  readonly sources: readonly string[];
   /** Complaint Mine Log row numbers backing this entry. Evidence, not vibes. */
-  complaintLogRows?: number[];
+  readonly complaintLogRows?: readonly number[];
 }
 
-export const PROVIDERS: Provider[] = [
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === 'object') {
+    for (const v of Object.values(value)) deepFreeze(v);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+export const PROVIDERS: readonly Provider[] = deepFreeze<Provider[]>([
   {
     id: 'google',
     displayName: 'Google',
@@ -70,6 +99,8 @@ export const PROVIDERS: Provider[] = [
           'The Google Cloud project behind this connection has its OAuth consent screen set to "Testing" with an External user type',
         certainty: 'conditional',
         window: '7 days',
+        windowSeconds: 7 * DAY,
+        countsFrom: 'issued',
         detail:
           'Google issues a refresh token that expires 7 days after consent. When it dies the platform gets invalid_grant, the trigger stops firing, and nothing throws a run-level error because there is no run.',
         howToCheck:
@@ -79,6 +110,8 @@ export const PROVIDERS: Provider[] = [
         condition: 'The consent screen is published to production and verified',
         certainty: 'conditional',
         window: 'indefinite, with five exceptions',
+        windowSeconds: null,
+        countsFrom: null,
         detail:
           'Effectively permanent unless: the token goes unused for six months, the user revokes access, the user changes their password while Gmail scopes are granted, the per-user token cap is exceeded, or the app loses verification for sensitive scopes.',
         howToCheck:
@@ -114,6 +147,8 @@ export const PROVIDERS: Provider[] = [
         condition: 'Normal case — the workflow runs at least every 90 days',
         certainty: 'certain',
         window: 'effectively indefinite',
+        windowSeconds: null,
+        countsFrom: null,
         detail:
           'Microsoft refresh tokens default to a 90-day inactivity limit and replace themselves every time they are used. A workflow that runs daily keeps resetting the clock, so this is lower risk than Google.',
       },
@@ -121,6 +156,8 @@ export const PROVIDERS: Provider[] = [
         condition: 'The workflow stops running for 90 days',
         certainty: 'certain',
         window: '90 days of inactivity',
+        windowSeconds: 90 * DAY,
+        countsFrom: 'last-use',
         detail:
           'The refresh token expires from disuse. Note the trap: a workflow that already went quiet for another reason quietly becomes unrecoverable too, so a short outage turns into a manual re-auth.',
       },
@@ -128,6 +165,8 @@ export const PROVIDERS: Provider[] = [
         condition: 'The tenant applies a Conditional Access sign-in frequency policy',
         certainty: 'conditional',
         window: 'whatever the policy says',
+        windowSeconds: null,
+        countsFrom: null,
         detail:
           'Since January 2021 refresh lifetimes are no longer configurable through token lifetime policies, but Conditional Access sign-in frequency still forces re-authentication on a schedule the client cannot see.',
         howToCheck:
@@ -155,6 +194,8 @@ export const PROVIDERS: Provider[] = [
         condition: 'The token was copied from the Meta app dashboard for testing',
         certainty: 'conditional',
         window: 'under 24 hours',
+        windowSeconds: DAY,
+        countsFrom: 'issued',
         detail:
           'Temporary access tokens expire in less than a day. Anyone who set this up while testing and never went back has a workflow that died the next morning.',
         howToCheck:
@@ -164,6 +205,8 @@ export const PROVIDERS: Provider[] = [
         condition: 'A System User token was generated with a 60-day expiry',
         certainty: 'conditional',
         window: '60 days',
+        windowSeconds: 60 * DAY,
+        countsFrom: 'issued',
         detail:
           'Meta lets you pick the expiry when generating a System User token. 60 days is the common choice and there is no warning before it lapses.',
         howToCheck:
@@ -173,6 +216,8 @@ export const PROVIDERS: Provider[] = [
         condition: 'A System User token was generated with no expiry',
         certainty: 'conditional',
         window: 'never',
+        windowSeconds: null,
+        countsFrom: null,
         detail: 'Permanent until someone revokes it manually.',
       },
     ],
@@ -182,7 +227,7 @@ export const PROVIDERS: Provider[] = [
     ],
     complaintLogRows: [13],
   },
-];
+]);
 
 /** Credential types that never expire on a clock — they get revoked instead. */
 export const STATIC_KEY_HINTS = [
@@ -199,6 +244,11 @@ export const STATIC_KEY_HINTS = [
   'mongodb',
 ];
 
+/**
+ * The provider a raw credential type belongs to ('googleSheetsOAuth2Api' on
+ * n8n, 'account:google' on Make), or `null` when the table doesn't know it.
+ * The same match the adapters use to fill `CredentialRef.providerId`.
+ */
 export function resolveProvider(rawType: string, platform: 'n8n' | 'make'): Provider | null {
   const needle = rawType.toLowerCase();
   for (const p of PROVIDERS) {

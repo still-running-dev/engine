@@ -50,7 +50,8 @@ export function checkCredentialExpiry(wf: Workflow): Finding[] {
             ),
           ].join('\n'),
           howToCheck: (shortest?.howToCheck ?? conditional[0]?.howToCheck) || undefined,
-          sources: provider.sources,
+          // A copy: the table is frozen and shared by every call.
+          sources: [...provider.sources],
         });
       } else if (cred.authKind === 'oauth2') {
         seen.add(key);

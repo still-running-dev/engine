@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.3.0
+
+**Added:** the provider expiry table the credential-expiry check reads, as
+`PROVIDERS`, with `resolveProvider(rawType, platform)` and the `Provider`,
+`ExpiryRule`, `CredentialRef` and `AuthKind` types. This is for consumers that
+see a real credential fail and want to say what that provider's tokens
+usually do: stillrunning-api forecasts expiry from it.
+
+- Each rule now carries its `window` as numbers too: `windowSeconds` (the
+  longest the rule lets the credential live) and `countsFrom` (`'issued'` or
+  `'last-use'`). Both are `null` when the window has no fixed length
+  ("never", "indefinite", a policy the export can't show). The wording is
+  unchanged.
+- The table is frozen, since `analyze()` reads the same objects. A finding's
+  `sources` is now its own copy rather than the table's array.
+- `classifyNodes()` lists each step's `credentials`: the raw type, the
+  provider it matched (`providerId`, or `null`), the auth kind and the
+  connection's name. A consumer can map a failing step to its provider
+  without parsing the export again.
+
+**Added:** `analyze()` and `classifyNodes()` accept the body Make's API
+returns for a scenario's blueprint, `{ code, response: { blueprint,
+scheduling } }`, as it comes. The schedule next to the blueprint is read, so
+such an input doesn't get the "no scheduling block" note.
+
 ## 2.2.0
 
 **Added:** `classifyNodes(input)`, which returns every step of a workflow as

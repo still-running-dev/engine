@@ -14,7 +14,7 @@
  * implementation detail that can change without a major version.
  */
 
-import type { AnalysisResult, Finding, NodeRole, Workflow } from './core/model.js';
+import type { AnalysisResult, CredentialRef, Finding, NodeRole, Workflow } from './core/model.js';
 import { SEVERITY_ORDER } from './core/model.js';
 import { checkZeroWrite, findAlertNodes } from './core/checks/zero-write.js';
 import { checkCadence, checkCredentialExpiry, checkErrorHandling } from './core/checks/others.js';
@@ -100,6 +100,11 @@ export interface ClassifiedNode {
    * the path.
    */
   terminal: boolean;
+  /**
+   * The connections this step uses, each with the `PROVIDERS` entry it
+   * matched (`providerId`, `null` when the table doesn't know it). Since 2.3.0.
+   */
+  credentials: CredentialRef[];
 }
 
 /**
@@ -134,7 +139,24 @@ export function classifyNodes(input: string | object): ClassifiedNode[] {
     role: n.role === 'write' && alertIds.has(n.id) ? 'alert' : n.role,
     disabled: n.disabled,
     terminal: !n.disabled && n.role !== 'note' && !leadsOn(n.id, new Set([n.id])),
+    credentials: n.credentials.map((c) => ({ ...c })),
   }));
 }
 
-export type { Finding, NodeRole, Platform, Severity } from './core/model.js';
+/**
+ * The provider expiry table the credential-expiry check reads, and the match
+ * that maps a raw credential type onto it. For consumers that see a real
+ * credential fail and want to say what that provider's tokens usually do
+ * (stillrunning-api). Frozen: analyze() reads the same objects.
+ */
+export { PROVIDERS, resolveProvider } from './core/providers.js';
+export type { ExpiryRule, Provider } from './core/providers.js';
+
+export type {
+  AuthKind,
+  CredentialRef,
+  Finding,
+  NodeRole,
+  Platform,
+  Severity,
+} from './core/model.js';

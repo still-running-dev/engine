@@ -7,7 +7,8 @@
  *     list plus a connections map. We flatten it and synthesise the edges.
  *  2. Filters sit on the LINK, not in a module. They become edge gates.
  *  3. Scheduling sits outside the blueprint, next to it. Present in a template
- *     export, absent from an API blueprint fetch — so we say which we got.
+ *     export and in the API's whole response, absent from a bare blueprint —
+ *     so we say which we got.
  */
 
 import type {
@@ -178,14 +179,26 @@ function flatten(flow: any[], prevId: string | null, acc: Flat, channel = 'main'
   return last;
 }
 
-export function isMakeBlueprint(raw: any): boolean {
-  if (!raw || typeof raw !== 'object') return false;
+/**
+ * Make's API answers GET /scenarios/{id}/blueprint one level down:
+ * `{ code, response: { blueprint, scheduling } }`. Taken as it comes, so a
+ * caller can pass that body without unwrapping it, and keeps its schedule.
+ */
+function unwrapApiResponse(raw: any): any {
+  const inner = raw?.response;
+  return inner && typeof inner === 'object' && Array.isArray(inner.blueprint?.flow) ? inner : raw;
+}
+
+export function isMakeBlueprint(input: any): boolean {
+  if (!input || typeof input !== 'object') return false;
+  const raw = unwrapApiResponse(input);
   if (Array.isArray(raw.flow)) return true;
   if (raw.blueprint && Array.isArray(raw.blueprint.flow)) return true;
   return false;
 }
 
-export function parseMake(raw: any): Workflow {
+export function parseMake(input: any): Workflow {
+  const raw = unwrapApiResponse(input);
   const bp = raw.blueprint ?? raw;
   const parseNotes: string[] = [];
   const acc: Flat = { nodes: [], edges: [] };

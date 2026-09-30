@@ -135,6 +135,14 @@ Since `2.2.0` it also has `classifyNodes()`, with its `ClassifiedNode` and
 and so on) and whether it ends the workflow, for code that watches real runs
 and needs to know which steps write data.
 
+Since `2.3.0` it also exports the provider expiry table, `PROVIDERS`, and
+`resolveProvider()`, which maps a raw credential type onto it. Each rule has
+its window in words and, when it has a fixed length, in seconds.
+`classifyNodes()` lists the connections each step uses, with the provider
+each one matched. Both `analyze()` and `classifyNodes()` also take the body
+Make's API returns for a blueprint (`{ code, response: { blueprint,
+scheduling } }`) without unwrapping.
+
 ## Command line
 
 ```
