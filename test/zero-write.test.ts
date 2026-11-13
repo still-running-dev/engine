@@ -119,5 +119,19 @@ describe('real exports parse', () => {
     const r = analyze(JSON.parse(fs.readFileSync(p, 'utf8')));
     expect(r.platform).toBe('make');
     expect(r.nodeCount).toBeGreaterThan(0);
+    // A published template names itself under `controller`, not on the blueprint.
+    expect(r.workflowName).toBe('Generate ChatGPT Completions from Google Sheets Rows');
+  });
+});
+
+describe('the chain in a zero-write finding', () => {
+  it('lists the steps in the order a run reaches them', () => {
+    // Code can return nothing ("possible"), Filter can match nothing
+    // ("structural"). Structural is picked first, but Code still runs first.
+    const r = analyze(
+      wf('t', [manualTrig(), node('Code', 'n8n-nodes-base.code'), node('Filter', 'n8n-nodes-base.filter'), write('Save')],
+        merge(link('Start', 'Code'), link('Code', 'Filter'), link('Filter', 'Save'))),
+    );
+    expect(zw(r)[0].detail).toContain('Chain: "Code" -> "Filter" -> "Save".');
   });
 });

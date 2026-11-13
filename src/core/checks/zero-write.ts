@@ -196,9 +196,18 @@ export function checkZeroWrite(wf: Workflow): Finding[] {
       severity = 'low';
     }
 
-    const chainNames = [...new Set([...structural, ...unguarded, ...starvers]
-      .slice(0, 3)
-      .map((s) => `"${s.node.label}"`))].join(' -> ');
+    // Pick the most telling steps (structural first), then print them in the
+    // order a run reaches them, which the picking order isn't: B's
+    // Code -> Filter -> write used to read "Filter" -> "Code" -> write. A
+    // write's dominators lie on one path, so a step with fewer dominators of
+    // its own comes earlier on it.
+    const picked = [
+      ...new Map([...structural, ...unguarded, ...starvers].map((s) => [s.node.id, s.node])).values(),
+    ].slice(0, 3);
+    const chainNames = picked
+      .sort((a, b) => (dom.get(a.id)?.size ?? 0) - (dom.get(b.id)?.size ?? 0))
+      .map((n) => `"${n.label}"`)
+      .join(' -> ');
 
     const target = w.writeTarget ? ` to ${w.writeTarget}` : '';
 

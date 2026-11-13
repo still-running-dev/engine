@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.3.1
+
+**Fixed:** a zero-write finding's "Chain:" listed its steps in the order the
+check ranked them, not the order a run reaches them. Code -> Filter -> write
+read as `"Filter" -> "Code" -> "write"`. Same steps; now in path order.
+
+**Fixed:** a published Make template (`{ blueprint, controller, scheduling }`)
+was named "Untitled scenario". Its name, under `controller.name`, is now used
+when the blueprint itself has none.
+
 ## 2.3.0
 
 **Added:** the provider expiry table the credential-expiry check reads, as

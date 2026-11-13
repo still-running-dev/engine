@@ -239,7 +239,8 @@ export function parseMake(input: any): Workflow {
 
   return {
     platform: 'make',
-    name: String(raw.name ?? bp.name ?? 'Untitled scenario'),
+    // A published template carries its name under `controller`, not on the blueprint.
+    name: String(raw.name ?? bp.name ?? raw.controller?.name ?? 'Untitled scenario'),
     nodes: acc.nodes,
     edges: acc.edges,
     triggerIds,
